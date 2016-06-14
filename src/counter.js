@@ -1,127 +1,34 @@
 ;(function() {
 
-	var plugin = "Counter";
+	"use strict";
 
-	window[plugin] = function(parent, options) {
-		this._options  = this._clone(options);
-		this._parent   = parent;
-		this._element  = null;
-		this._digits   = null;
-		this._interval = null;
-		this._calc     = {};
+	var LIB = "Counter";
+
+	window[LIB] = function() {
+		this._template  = '<div class="counter"><span class="digit day char3">0</span><span class="digit day char2">0</span><span class="digit day char1 sep">0</span><span class="digit hrs char2">0</span><span class="digit hrs char1 sep dot">0</span><span class="digit min char2">0</span><span class="digit min char1 sep dot">0</span><span class="digit sec char2">0</span><span class="digit sec char1">0</span></div>';
+		this._timestamp = new Date().getTime();
+		this._events    = {};
+		this._element   = null;
+		this._digits    = null;
+		this._interval  = null;
+		this._calc      = {};
 
 		this.init();
 
 		return this;
 	}
 
-	window[plugin].prototype = {
+	window[LIB].prototype = {
 
 		/**
-		 * Counter default options
-		 *
-		 * @type {Object}
-		 */
-		_defaults: {
-			template  : '<div class="counter"><span class="digit day char3">0</span><span class="digit day char2">0</span><span class="digit day char1 sep">0</span><span class="digit hrs char2">0</span><span class="digit hrs char1 sep dot">0</span><span class="digit min char2">0</span><span class="digit min char1 sep dot">0</span><span class="digit sec char2">0</span><span class="digit sec char1">0</span></div>',
-			timestamp : new Date().getTime()
-		},
-
-		/**
-		 * Clone object
-		 * (used for options)
-		 *
-		 * @param  {Object} o
-		 * @return {Object}
-		 */
-		_clone: function(o) {
-			var result = Object(result);
-
-			for (var i in o) {
-				if (Object.prototype.hasOwnProperty.call(o, i)) {
-					result[i] = o[i];
-				}
-			}
-
-			return result;
-		},
-
-		/**
-		 * Trigger event
-		 * (event is dispatched on parent element)
-		 *
-		 * @param  {String} event
-		 * @return {Object}
-		 */
-		_trigger: function(event) {
-			event = "counter" + event;
-			var result;
-
-			// ie
-			if (document.createEvent) {
-				result = document.createEvent("CustomEvent");
-				result.initCustomEvent(event, true, true, { plugin: this });
-			}
-
-			// modern browsers
-			else {
-				result = new CustomEvent(event, { bubbles: true, cancelable: true, detail: { plugin: this }});
-			}
-
-			// dispatch
-			return this._parent.dispatchEvent(result);
-		},
-
-		/**
-		 * Append element (template) to parent
-		 *
-		 * @return {Void}
-		 */
-		_attach: function() {
-			this._detach();
-
-			var div = document.createElement("div");
-			div.innerHTML = this._options.template;
-
-			if (div.childNodes.length != 1) {
-				throw "Counter -> template error (wrap everything aroung one element)";
-			}
-
-			var el = div.childNodes[0];
-			div.removeChild(div.childNodes[0]);
-			this._parent.appendChild(el);
-
-			this._element = el;
-			this._digits  = this._element.querySelectorAll(".digit");
-		},
-
-		/**
-		 * Remove element from parent
-		 *
-		 * @return {Void}
-		 */
-		_detach: function() {
-			this.stop();
-
-			if (this._element && this._element.parentNode) {
-				this._element.parentNode.removeChild(this._element);
-			}
-
-			this._element  = null;
-			this._digits   = null;
-			this._interval = null;
-			this._calc     = {};
-		},
-
-		/**
-		 * Calculate offset from now 'till this._options.timestamp
+		 * Calculate offset from now 'till this._timestamp
 		 * and parse digits
 		 *
 		 * @return {Void}
 		 */
 		_recalc: function() {
 			// date offset in seconds
-			var offset        = new Date().getTime() - this.option("timestamp");
+			var offset        = new Date().getTime() - this._timestamp;
 			this._calc        = {};
 			this._calc.offset = offset;
 			this._calc.offset = Math.round(offset / 1000);
@@ -144,6 +51,10 @@
 		 * @return {Void}
 		 */
 		_render: function() {
+			if ( ! this._digits) {
+				return;
+			}
+
 			for (var i = 0; i < this._digits.length; i++) {
 				var property, text, match;
 
@@ -167,7 +78,7 @@
 				}
 
 				// set element text
-				if (typeof text !== "undefined") {
+				if (typeof text !== "undefined" && this._digits[i].innerHTML !== text) {
 					this._digits[i].innerHTML = text;
 				}
 			}
@@ -183,7 +94,7 @@
 			this._recalc();
 
 			// send event and prevent default
-			if ( ! this._trigger("tick", this._calc)) {
+			if ( ! this.trigger("tick")) {
 				return;
 			}
 
@@ -202,20 +113,7 @@
 		 * @return {Void}
 		 */
 		init: function() {
-			// use _default if property not defined in options
-			for (var i in this._defaults) {
-				this._options[i] = i in this._options ? this._options[i] : this._defaults[i];
-			}
-
-			// validate options properties
-			for (var i in this._options) {
-				this.option(i, this._options[i]);
-			}
-
-			// preview
-			this._attach();
-			this._recalc();
-			this._render();
+			// pass
 		},
 
 		/**
@@ -225,12 +123,76 @@
 		 */
 		destroy: function() {
 			// send event and prevent default
-			if ( ! this._trigger("destroy")) {
+			if ( ! this.trigger("destroy")) {
 				return;
 			}
 
+			// stop
+			clearInterval(this._interval);
+
 			// remove element
-			this._detach();
+			this.detach();
+
+			// clear properties
+			this._element  = null;
+			this._digits   = null;
+			this._interval = null;
+			this._calc     = {};
+		},
+
+		/**
+		 * Append element to parent
+		 *
+		 * @return {Void}
+		 */
+		attach: function(parent) {
+			this.detach();
+
+			// check parent type
+			if (parent instanceof HTMLElement) {
+				// pass
+			}
+			else if (parent instanceof NodeList) {
+				return this.attach(parent[0]);
+			}
+			else if (typeof parent === "string") {
+				return this.attach(document.querySelectorAll(parent));
+			}
+			else {
+				return;
+			}
+
+			// create wrapper element
+			var div = document.createElement("div");
+			div.innerHTML = this._template;
+
+			if (div.childNodes.length != 1) {
+				throw LIB + " -> template error (wrap everything aroung one element)";
+			}
+
+			// remove from wrapper, append on parent
+			var el = div.childNodes[0];
+			div.removeChild(div.childNodes[0]);
+			parent.appendChild(el);
+
+			// set properties
+			this._element = el;
+			this._digits  = this._element.querySelectorAll(".digit");
+
+			// preview
+			this._recalc();
+			this._render();
+		},
+
+		/**
+		 * Remove element from parent
+		 *
+		 * @return {Void}
+		 */
+		detach: function() {
+			if (this._element && this._element.parentNode) {
+				this._element.parentNode.removeChild(this._element);
+			}
 		},
 
 		/**
@@ -248,7 +210,7 @@
 			this._recalc();
 
 			// send event and prevent default
-			if ( ! this._trigger("start")) {
+			if ( ! this.trigger("start")) {
 				return;
 			}
 
@@ -277,7 +239,7 @@
 			this._recalc();
 
 			// send event and prevent default
-			if ( ! this._trigger("stop")) {
+			if ( ! this.trigger("stop")) {
 				return;
 			}
 
@@ -301,22 +263,74 @@
 		},
 
 		/**
-		 * Reset counter (set all zero values)
+		 * Trigger event
 		 *
-		 * @return {Void}
+		 * @param  {String}  eventName
+		 * @return {Boolean}
 		 */
-		reset: function() {
-			if ( ! this._trigger("reset")) {
-				return;
+		trigger: function(eventName) {
+			// create event-like object
+			var result = {
+				target           : this,
+				type             : eventName,
+				timeStamp        : new Date().getTime(),
+				defaultPrevented : false
 			}
 
-			for (var i = 0; i < this._digits.length; i++) {
-				this._digits[i].innerHTML = "0";
+			// execute callback
+			if (this._events[eventName]) {
+				for (var i = this._events[eventName].length - 1; i >= 0; i--) {
+					if (this._events[eventName][i].call(this, result) === false) {
+						result.defaultPrevented = true;
+						break;
+					}
+				}
+			}
+
+			return ! result.defaultPrevented;
+		},
+
+		/**
+		 * Bind event
+		 *
+		 * @param  {String}   eventName
+		 * @param  {Function} callback
+		 * @return {Void}
+		 */
+		on: function(eventName, callback) {
+			// register event
+			if ( ! this._events[eventName]) {
+				this._events[eventName] = [];
+			}
+
+			// save callback
+			this._events[eventName].push(callback);
+		},
+
+		/**
+		 * Unbind event
+		 *
+		 * @param  {String}   eventName
+		 * @param  {Function} callback
+		 * @return {Void}
+		 */
+		off: function(eventName, callback) {
+			// find event
+			var result = [];
+			for (var i = 0; i < this._events[eventName] ? this._events[eventName].length : 0; i++) {
+				if (typeof callback === "undefined" || this._events[eventName][i] === callback) {
+					result.push(i);
+				}
+			}
+
+			// remove event
+			for (var i = result.length - 1; i >= 0; i--) {
+				this._events[eventName].splice(result[i], 1);
 			}
 		},
 
 		/**
-		 * Offset from now 'till this._options.timestamp
+		 * Get calculated offset from now 'till this._timestamp
 		 *
 		 * @return {Numeric}
 		 */
@@ -325,38 +339,48 @@
 		},
 
 		/**
-		 * Get/set option property
+		 * Get/set timestamp
 		 *
-		 * @param  {String} key
-		 * @param  {Mixed}  value
+		 * @param  {Mixed} val
 		 * @return {Mixed}
 		 */
-		option: function(key, value) {
+		timestamp: function(val) {
 			// get
-			if (typeof value === "undefined") {
-				return this._options[key];
-			}
-
-			// invalid key
-			if ( ! key in this._defaults) {
-				return;
-			}
-
-			// fix invalid option type
-			if (typeof this._defaults[key] !== typeof this._options[key]) {
-				this._options[key] = this._defaults[key];
+			if (typeof val === "undefined") {
+				return this._timestamp;
 			}
 
 			// set
-			if (typeof this._defaults[key] === typeof value) {
-				this._options[key] = value;
+			if (typeof (val*1) === "number") {
+				this._timestamp = val*1;
+
+				// display changes
+				this._recalc();
+				this._render();
+			}
+		},
+
+		/**
+		 * Get/set template
+		 *
+		 * @param  {Mixed} val
+		 * @return {Mixed}
+		 */
+		template: function(val) {
+			// get
+			if (typeof val === "undefined") {
+				return this._template;
 			}
 
-			// display changes
-			if (key == "template") this._attach();
-			this._recalc();
-			this._render();
+			// set
+			if (typeof val === "string") {
+				this._template = val;
+
+				// display changes
+				this.attach(this._element ? this._element.parentNode : null);
+			}
 		}
+
 	}
 
 })();
