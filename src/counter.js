@@ -113,7 +113,7 @@
 		 * @return {Void}
 		 */
 		init: function() {
-			// pass
+			this._recalc();
 		},
 
 		/**
