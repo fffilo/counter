@@ -156,30 +156,32 @@
 				return this.attach(document.querySelectorAll(parent));
 			}
 
-			// create wrapper element
-			var div = document.createElement("div");
-			div.innerHTML = this._template;
+			// create new template
+			if ( ! this._element || this._element.innerHTML != this._template) {
+				var div = document.createElement("div");
+				div.innerHTML = this._template;
 
-			if (div.childNodes.length != 1) {
-				throw LIB + " -> template error (wrap everything aroung one element)";
+				if (div.childNodes.length != 1) {
+					throw LIB + " -> template error (wrap everything aroung one element)";
+				}
+
+				// remove from wrapper
+				var el = div.childNodes[0];
+				div.removeChild(div.childNodes[0]);
+
+				// set properties
+				this._element = el;
+				this._digits  = this._element.querySelectorAll(".digit");
+
+				// preview
+				this._recalc();
+				this._render();
 			}
 
-			// remove from wrapper
-			var el = div.childNodes[0];
-			div.removeChild(div.childNodes[0]);
-
-			// append on parent (if valid)
-			if (parent instanceof HTMLElement) {
-				parent.appendChild(el);
+			// append on parent
+			if (this._element.parentNode !== parent && parent instanceof HTMLElement) {
+				parent.appendChild(this._element);
 			}
-
-			// set properties
-			this._element = el;
-			this._digits  = this._element.querySelectorAll(".digit");
-
-			// preview
-			this._recalc();
-			this._render();
 		},
 
 		/**
