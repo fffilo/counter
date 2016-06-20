@@ -148,18 +148,12 @@
 		attach: function(parent) {
 			this.detach();
 
-			// check parent type
-			if (parent instanceof HTMLElement) {
-				// pass
-			}
-			else if (parent instanceof NodeList) {
+			// convert parent to HTMLElement
+			if (parent instanceof NodeList) {
 				return this.attach(parent[0]);
 			}
 			else if (typeof parent === "string") {
 				return this.attach(document.querySelectorAll(parent));
-			}
-			else {
-				return;
 			}
 
 			// create wrapper element
@@ -170,10 +164,14 @@
 				throw LIB + " -> template error (wrap everything aroung one element)";
 			}
 
-			// remove from wrapper, append on parent
+			// remove from wrapper
 			var el = div.childNodes[0];
 			div.removeChild(div.childNodes[0]);
-			parent.appendChild(el);
+
+			// append on parent (if valid)
+			if (parent instanceof HTMLElement) {
+				parent.appendChild(el);
+			}
 
 			// set properties
 			this._element = el;
